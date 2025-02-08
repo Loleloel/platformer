@@ -31,20 +31,15 @@ impl Default for PlayerConfig {
 pub enum PlayerState {
     Jumping,
     Standing,
-    Falling,
 }
 
 /// Main player component containing movement and physics properties
 #[derive(Component, Debug)]
 pub struct Player {
-    /// Horizontal movement speed
     speed: f32,
-    /// Vertical force applied when jumping
     jump_force: f32,
-    /// Whether the player can perform a double jump
     can_double_jump: bool,
-    /// Current vertical velocity
-    vertical_velocity: f32,
+    current_vertical_velocity: f32,
 }
 
 // Better encapsulation with private fields and public methods
@@ -70,7 +65,7 @@ impl Player {
         // Missing ceiling collision check from original implementation
         self.apply_gravity(delta, config);
         // We should return full velocity vector including horizontal
-        Vec2::new(0.0, self.vertical_velocity)
+        Vec2::new(0.0, self.current_vertical_velocity)
     }
 
     /// Applies gravity force to the player
@@ -79,13 +74,13 @@ impl Player {
     /// * `delta` - Time elapsed since last frame
     /// * `config` - Reference to player configuration
     fn apply_gravity(&mut self, delta: f32, config: &PlayerConfig) {
-        self.vertical_velocity += config.gravity * delta;
-        self.vertical_velocity = self.vertical_velocity.max(config.terminal_velocity);
+        self.current_vertical_velocity += config.gravity * delta;
+        self.current_vertical_velocity = self.current_vertical_velocity.max(config.terminal_velocity);
     }
 
     /// Initiates a jump by setting vertical velocity
     pub fn jump(&mut self) {
-        self.vertical_velocity = self.jump_force;
+        self.current_vertical_velocity = self.jump_force;
     }
 
     /// Handles collision detection and updates player state
@@ -96,16 +91,10 @@ impl Player {
     /// # Returns
     /// The new PlayerState based on collision results
     pub fn handle_collision(&mut self, collision: &KinematicCharacterControllerOutput) -> PlayerState {
-        if collision.grounded {
-            // Only zero out velocity if we're actually falling
-            // This prevents canceling jumps that just started
-            if self.vertical_velocity < 0.0 {
-                self.vertical_velocity = 0.0;
-            }
+        if collision.grounded && self.current_vertical_velocity < 0.0 {
+            self.current_vertical_velocity = 0.0;
             self.can_double_jump = true;
             PlayerState::Standing
-        } else if self.vertical_velocity < 0.0 {
-            PlayerState::Falling
         } else {
             PlayerState::Jumping
         }
@@ -117,9 +106,9 @@ impl Player {
     /// * `output` - Collision output from the physics engine
     pub fn handle_ceiling_collision(&mut self, output: &KinematicCharacterControllerOutput) {
         if output.effective_translation.y < output.desired_translation.y 
-            && self.vertical_velocity > 0.0 
+            && self.current_vertical_velocity > 0.0 
         {
-            self.vertical_velocity = 0.0;
+            self.current_vertical_velocity = 0.0;
         }
     }
 }
@@ -147,9 +136,9 @@ impl PlayerBundle {
                 speed: config.initial_speed,
                 jump_force: config.initial_jump_force * 1.5, // Store the adjusted jump force
                 can_double_jump: true,
-                vertical_velocity: 0.0,
+                current_vertical_velocity: 0.0,
             },
-            state: PlayerState::Falling,
+            state: PlayerState::Jumping,
             sprite: Sprite {
                 color: Color::srgb(0.25, 0.25, 0.75),
                 custom_size: Some(Vec2::new(32.0, 32.0)),
@@ -225,7 +214,7 @@ fn player_jump(
         PlayerState::Standing => {
             player.jump();
         }
-        PlayerState::Jumping | PlayerState::Falling if player.can_double_jump() => {
+        PlayerState::Jumping if player.can_double_jump() => {
             player.set_can_double_jump(false);
             player.jump();
         }
