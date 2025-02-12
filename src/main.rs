@@ -1,23 +1,62 @@
-use bevy::prelude::*;
-use crate::keybinds::InputPlugin;
+mod plugin;
 mod player;
-mod physics;
-mod game_state;
-mod keybinds;
-// mod animation;
-// mod systems;
+
+use avian2d::{math::*, prelude::*};
+use bevy::prelude::*;
+use plugin::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(InputPlugin)  // Add this before your game's plugins
-        .add_plugins(player::PlayerPlugin)
-        .add_plugins(physics::PhysicsPlugin)
-        .insert_resource(State::new(game_state::GameState::default()))  // Changed this line
-        .add_systems(Startup, setup_camera)
+        .add_plugins((
+            DefaultPlugins,
+            PhysicsPlugins::default().with_length_unit(20.0),
+            CharacterControllerPlugin,
+        ))
+        .insert_resource(ClearColor(Color::srgb(0.05, 0.05, 0.1)))
+        .insert_resource(Gravity(Vector::NEG_Y * 900.0))
+        .add_systems(Startup, setup)
         .run();
 }
 
-fn setup_camera(mut commands: Commands) {
-    commands.spawn(Camera2d::default());  // Also note: Camera2dBundle instead of Camera2d
+fn setup(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+) {
+    // Platforms
+    commands.spawn((
+        Sprite {
+            image: assets.load("platform_1.png"),
+            image_mode: SpriteImageMode::Tiled { tile_x: true, tile_y: false, stretch_value: 1.0 },
+            custom_size: Some(Vec2::new(2000.0, 32.0)),
+            ..default()
+        },
+        Transform::from_xyz(0.0, -175.0, 0.0),
+        RigidBody::Static,
+        Collider::rectangle(2000.0, 32.0),
+    ));
+    commands.spawn((
+        Sprite {
+            image: assets.load("platform_1.png"),
+            image_mode: SpriteImageMode::Tiled { tile_x: true, tile_y: false, stretch_value: 1.0 },
+            custom_size: Some(Vec2::new(320.0, 32.0)),
+            ..default()
+        },
+        Transform::from_xyz(175.0, -35.0, 0.0),
+        RigidBody::Static,
+        Collider::rectangle(320.0, 32.0),
+    ));
+    commands.spawn((
+        Sprite {
+            image: assets.load("platform_1.png"),
+            image_mode: SpriteImageMode::Tiled { tile_x: true, tile_y: false, stretch_value: 1.0 },
+            custom_size: Some(Vec2::new(320.0, 32.0)),
+            ..default()
+        },
+        Transform::from_xyz(-175.0, 0.0, 0.0),
+        RigidBody::Static,
+        Collider::rectangle(320.0, 32.0),
+    ));
+
+    // Camera
+    commands.spawn(Camera2d);
 }
