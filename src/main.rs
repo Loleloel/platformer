@@ -1,5 +1,7 @@
 mod plugin;
 mod player;
+mod input;
+mod keybinds;
 
 use avian2d::{math::*, prelude::*};
 use bevy::prelude::*;

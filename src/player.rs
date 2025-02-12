@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use avian2d::{math::*, prelude::*};
-use crate::plugin::*;
+use crate::input::MovementBundle;
 
 #[derive(Component)]
 pub struct Player;
@@ -32,6 +32,47 @@ pub struct CharacterControllerBundle {
     ground_caster: ShapeCaster,
     locked_axes: LockedAxes,
     movement: MovementBundle,
+}
+
+#[derive(Bundle)]
+pub struct PlayerBundle {
+    player: Player,
+    sprite: Sprite,
+    transform: Transform,
+    controller: CharacterControllerBundle,
+    friction: Friction,
+    restitution: Restitution,
+}
+
+impl PlayerBundle {
+    pub fn spawn_player(mut commands: Commands) {
+        commands.spawn((
+            PlayerBundle::default(),
+            ColliderDensity(2.0),
+            GravityScale(1.5),));
+    }
+}
+    
+impl Default for PlayerBundle {
+    fn default() -> Self {
+        Self {
+            player: Player,
+            sprite: Sprite {
+                color: Color::srgb(1.0, 0.0, 0.5),
+                custom_size: Some(Vec2::new(32.0, 32.0)),
+                ..default()
+            },
+            transform: Transform::from_xyz(0.0, -100.0, 0.0),
+            controller: CharacterControllerBundle::new(Collider::rectangle(32.0, 32.0)).with_movement(
+                5000.0,
+                0.80,
+                650.0,
+                (30.0 as Scalar).to_radians(),
+            ),
+            friction: Friction::ZERO.with_combine_rule(CoefficientCombine::Min),
+            restitution: Restitution::ZERO.with_combine_rule(CoefficientCombine::Min),
+        }
+    }
 }
 
 impl CharacterControllerBundle {
@@ -68,43 +109,29 @@ impl CharacterControllerBundle {
     }
 }
 
-#[derive(Bundle)]
-pub struct PlayerBundle {
-    player: Player,
-    sprite: Sprite,
-    transform: Transform,
-    controller: CharacterControllerBundle,
-    friction: Friction,
-    restitution: Restitution,
-}
+/// Updates the [`Grounded`] status for character controllers.
+pub fn update_grounded(
+    mut commands: Commands,
+    mut query: Query<
+        (Entity, &ShapeHits, &Rotation, Option<&MaxSlopeAngle>),
+        With<CharacterController>,
+    >,
+) {
+    for (entity, hits, rotation, max_slope_angle) in &mut query {
+        // The character is grounded if the shape caster has a hit with a normal
+        // that isn't too steep.
+        let is_grounded = hits.iter().any(|hit| {
+            if let Some(angle) = max_slope_angle {
+                (rotation * -hit.normal2).angle_to(Vector::Y).abs() <= angle.0
+            } else {
+                true
+            }
+        });
 
-impl PlayerBundle {
-    pub fn spawn_player(mut commands: Commands) {
-        commands.spawn((
-            PlayerBundle::default(),
-            ColliderDensity(2.0),
-            GravityScale(1.5),));
-    }
-}
-
-impl Default for PlayerBundle {
-    fn default() -> Self {
-        Self {
-            player: Player,
-            sprite: Sprite {
-                color: Color::srgb(1.0, 0.0, 0.5),
-                custom_size: Some(Vec2::new(32.0, 32.0)),
-                ..default()
-            },
-            transform: Transform::from_xyz(0.0, -100.0, 0.0),
-            controller: CharacterControllerBundle::new(Collider::rectangle(32.0, 32.0)).with_movement(
-                5000.0,
-                0.80,
-                650.0,
-                (30.0 as Scalar).to_radians(),
-            ),
-            friction: Friction::ZERO.with_combine_rule(CoefficientCombine::Min),
-            restitution: Restitution::ZERO.with_combine_rule(CoefficientCombine::Min),
+        if is_grounded {
+            commands.entity(entity).insert(Grounded);
+        } else {
+            commands.entity(entity).remove::<Grounded>();
         }
     }
 }
