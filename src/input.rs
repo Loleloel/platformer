@@ -19,7 +19,7 @@ pub fn keyboard_input(
         movement_event_writer.send(MovementAction::Move(direction));
     }
 
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input.any_just_pressed([KeyCode::Space, KeyCode::KeyW, KeyCode::ArrowUp]) {
         movement_event_writer.send(MovementAction::Jump);
     }
 }
@@ -56,21 +56,24 @@ impl Default for MovementBundle {
 
 /// Responds to [`MovementAction`] events and moves character controllers accordingly.
 pub fn movement(
+    mut commands: Commands,
     time: Res<Time>,
     mut movement_event_reader: EventReader<MovementAction>,
     mut controllers: Query<(
+        Entity,
         &MovementAcceleration,
         &JumpForce,
         &mut LinearVelocity,
         Has<Grounded>,
-    )>,
+        Has<DoubleJump>,
+    ), With<Player>>,
 ) {
     // Precision is adjusted so that the example works with
     // both the `f32` and `f64` features. Otherwise you don't need this.
     let delta_time = time.delta_secs_f64().adjust_precision();
 
     for event in movement_event_reader.read() {
-        for (movement_acceleration, jump_impulse, mut linear_velocity, is_grounded) in
+        for (entity, movement_acceleration, jump_impulse, mut linear_velocity, is_grounded, can_couble_jump) in
             &mut controllers
         {
             match event {
@@ -80,6 +83,9 @@ pub fn movement(
                 MovementAction::Jump => {
                     if is_grounded {
                         linear_velocity.y = jump_impulse.0;
+                    } else if can_couble_jump {
+                        linear_velocity.y = jump_impulse.0;
+                        commands.entity(entity).remove::<DoubleJump>();
                     }
                 }
             }

@@ -1,4 +1,5 @@
-use bevy::prelude::*;
+use bevy::{color::palettes::css::LIGHT_GOLDENROD_YELLOW, prelude::*};
+use bevy_light_2d::prelude::*;
 use avian2d::{math::*, prelude::*};
 use crate::input::MovementBundle;
 
@@ -13,6 +14,10 @@ pub struct CharacterController;
 pub struct Grounded;
 
 #[derive(Component)]
+#[component(storage = "SparseSet")]
+pub struct DoubleJump;
+
+#[derive(Component)]
 pub struct MovementAcceleration(pub Scalar);
 
 #[derive(Component)]
@@ -23,6 +28,9 @@ pub struct JumpForce(pub Scalar);
 
 #[derive(Component)]
 pub struct MaxSlopeAngle(pub Scalar);
+
+#[derive(Component)]
+pub struct MainCamera;
 
 #[derive(Bundle)]
 pub struct CharacterControllerBundle {
@@ -49,7 +57,14 @@ impl PlayerBundle {
         commands.spawn((
             PlayerBundle::default(),
             ColliderDensity(2.0),
-            GravityScale(1.5),));
+            GravityScale(1.5),
+            PointLight2d {
+                color: Color::Srgba(LIGHT_GOLDENROD_YELLOW),
+                intensity: 7.5,
+                radius: 500.0,
+                falloff: 10.0,
+                cast_shadows: true
+            }));
     }
 }
     
@@ -129,7 +144,7 @@ pub fn update_grounded(
         });
 
         if is_grounded {
-            commands.entity(entity).insert(Grounded);
+            commands.entity(entity).insert((Grounded, DoubleJump));
         } else {
             commands.entity(entity).remove::<Grounded>();
         }
